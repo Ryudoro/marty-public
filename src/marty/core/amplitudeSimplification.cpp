@@ -251,8 +251,11 @@ color::ColorSpace const *isColorStructure(csl::IndexStructure const &structure)
     if (structure.size() < 2)
         return nullptr;
     color::ColorSpace const *color = inColorSpace(structure[0]);
+    if (!color)
+        return nullptr;
     for (const auto &index : structure) {
-        if (!inColorSpace(index))
+        auto const *indexColor = inColorSpace(index);
+        if (!indexColor || !color->isIndexCompatibleWith(indexColor))
             return nullptr;
     }
     return color;
@@ -286,7 +289,7 @@ csl::IndexStructure colorStructure(csl::Expr const &        node,
         if (!csl::IsIndicialTensor(sub))
             return;
         for (const auto &i : sub->getIndexStructureView()) {
-            if (i.getSpace() != color)
+            if (!color->isIndexCompatibleWith(i.getSpace()))
                 continue;
             auto pos = std::find(res.begin(), res.end(), i);
             if (pos == res.end())

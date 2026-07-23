@@ -182,6 +182,11 @@ std::string Space::getName() const
     return name;
 }
 
+bool Space::isIndexCompatibleWith(const Space *other) const
+{
+    return this == other;
+}
+
 bool Space::hasSpecialTraceProperty(const csl::vector_expr &) const
 {
     CALL_SMERROR(CSLError::AbstractCallError);

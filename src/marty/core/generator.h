@@ -55,6 +55,11 @@ class GeneratorParent : public csl::TensorParent {
 
     std::string getCodeName() const;
 
+    mty::Irrep const &getIrrep() const
+    {
+        return irrep;
+    }
+
   private:
     mty::GaugedGroup *group;
     mty::Irrep        irrep;

@@ -1569,8 +1569,9 @@ void TensorParent::checkIndexRequest(const vector<Index> &request)
                           (string) ": size does not match: "
                               + sizeMismatch.str());
     }
-    for (auto index = request.begin(); index != request.end(); ++index)
-        if (index->getSpace() != space[distance(request.begin(), index)]) {
+    for (auto index = request.begin(); index != request.end(); ++index) {
+        const auto *expectedSpace = space[distance(request.begin(), index)];
+        if (!expectedSpace->isIndexCompatibleWith(index->getSpace())) {
             std::cout << "Indices :" << std::endl;
             for (const auto &i : request)
                 std::cout << i << std::endl;
@@ -1579,9 +1580,9 @@ void TensorParent::checkIndexRequest(const vector<Index> &request)
                 CSLError::IndexError,
                 "Index space does not match: " + (string) ": space \""
                     + index->getSpace()->getName() + "\" mismatch with \""
-                    + space[distance(request.begin(), index)]->getName()
-                    + "\".");
+                    + expectedSpace->getName() + "\".");
         }
+    }
 }
 
 void TensorParent::createFixedIndices(Index &index) const

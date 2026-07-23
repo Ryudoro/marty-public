@@ -145,7 +145,8 @@ csl::Expr getMagneticGenerator(mty::Model const &model,
         auto j                        = space->generateIndex();
         A->getIndexStructureView()[0] = I;
         for (size_t k = 0; k != psi->getIndexStructureView().size(); ++k)
-            if (psi->getIndexStructureView()[k].getSpace() == space) {
+            if (space->isIndexCompatibleWith(
+                    psi->getIndexStructureView()[k].getSpace())) {
                 psi_star->getIndexStructureView()[k] = i;
                 psi->getIndexStructureView()[k]      = j;
                 break;
@@ -456,7 +457,7 @@ csl::Index &groupIndex(Model const &model, Group const *group, csl::Expr &psi)
 {
     auto vSpace = model.getVectorSpace(group, psi);
     for (auto &index : psi->getIndexStructureView()) {
-        if (index.getSpace() == vSpace)
+        if (vSpace->isIndexCompatibleWith(index.getSpace()))
             return index;
     }
     CallHEPError(mty::error::RuntimeError,

@@ -233,7 +233,7 @@ void VariableParent::addDependency(Expr_info expr)
         allDependencies = false;
         dependencies.clear();
     }
-    auto pos = find_if(
+    auto pos = std::find_if(
         dependencies.begin(),
         dependencies.end(),
         [&expr](const unique_Expr_c &el) { return *expr == *el.get(); });
@@ -248,7 +248,7 @@ void VariableParent::addDependency(Expr_info expr)
 
 void VariableParent::removeDependency(Expr_info expr)
 {
-    auto pos = find_if(
+    auto pos = std::find_if(
         dependencies.begin(),
         dependencies.end(),
         [&expr](const unique_Expr_c &el) { return *expr == el.get(); });
@@ -274,7 +274,7 @@ bool VariableParent::dependsOn(Expr_info expr) const
         or expr->getType() == csl::Type::Constant)
         return false;
 
-    auto pos = find_if(
+    auto pos = std::find_if(
         dependencies.begin(),
         dependencies.end(),
         [&expr](const unique_Expr_c &el) { return *expr == el.get(); });

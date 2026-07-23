@@ -23,6 +23,7 @@
 #ifndef VARIABLE_PARENT_H_INCLUDED
 #define VARIABLE_PARENT_H_INCLUDED
 
+#include <algorithm>
 #include "abstract.h"
 #include "parent.h"
 

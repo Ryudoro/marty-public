@@ -23,6 +23,7 @@
 #pragma once
 
 #include "planargraph.h"
+#include <algorithm>
 #include <map>
 #include <sstream>
 

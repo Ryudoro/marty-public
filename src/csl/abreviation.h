@@ -23,6 +23,7 @@
 #ifndef ABREVIATION_H_INCLUDED
 #define ABREVIATION_H_INCLUDED
 
+#include <algorithm>
 #include "abstract.h"
 #include "algo.h"
 #include "index.h"

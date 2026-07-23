@@ -24,6 +24,7 @@
 #define INDEX_H_INCLUDED
 
 #include "std_vector_implementation.h"
+#include <algorithm>
 #include <map>
 #include <string>
 #include <string_view>

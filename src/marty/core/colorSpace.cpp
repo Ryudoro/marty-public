@@ -95,6 +95,23 @@ std::string ColorSpace::getName() const
     return colorName;
 }
 
+bool ColorSpace::isIndexCompatibleWith(const csl::Space *other) const
+{
+    if (this == other)
+        return true;
+
+    auto const *otherColor = dynamic_cast<ColorSpace const *>(other);
+    if (!otherColor || otherColor->group != group)
+        return false;
+
+    mty::Irrep rep
+        = group->highestWeightRep(group->getHighestWeight(this));
+    mty::Irrep otherRep
+        = group->highestWeightRep(group->getHighestWeight(otherColor));
+
+    return rep.getConjugatedRep() == otherRep;
+}
+
 void ColorSpace::printCode(std::ostream &out, int indentSize) const
 {
     std::string indent(indentSize, ' ');
@@ -160,6 +177,16 @@ csl::Expr ColorSpace::calculateTrace(csl::vector_expr tensors) const
               "Should not encounter more than 12 tensors in a trace.");
     // tensors.size() >= 3
     mty::Irrep irrep = group->highestWeightRep(group->getHighestWeight(this));
+    for (auto const &tensor : tensors) {
+        auto const *generator
+            = dynamic_cast<mty::GeneratorParent const *>(tensor->getParent_info());
+        if (generator) {
+            irrep = generator->getIrrep();
+            if (tensor->isComplexConjugate())
+                irrep = irrep.getConjugatedRep();
+            break;
+        }
+    }
     std::vector<csl::Index>   indices    = exprToIndices(tensors);
     std::vector<TraceIndices> contracted = contractIndices(indices, irrep);
     mergeTraces(contracted);
@@ -169,7 +196,7 @@ csl::Expr ColorSpace::calculateTrace(csl::vector_expr tensors) const
     std::vector<csl::Expr> terms;
     terms.reserve(contracted.size());
     for (const auto &trace : contracted) {
-        terms.push_back(symmetrizedTrace(trace));
+        terms.push_back(symmetrizedTrace(trace, irrep));
     }
     return csl::Expanded(csl::sum_s(terms), true);
 }
@@ -240,7 +267,8 @@ ColorSpace::symmetrize(TraceIndices const &init) const
 
 csl::Expr
 ColorSpace::applySingleTraceIdentity(TraceIndices const &      trace,
-                                     mty::TraceIdentity const &id) const
+                                     mty::TraceIdentity const &id,
+                                     mty::Irrep const &        irrep) const
 {
     std::vector<csl::Expr> terms;
     terms.reserve(id.size());
@@ -253,7 +281,7 @@ ColorSpace::applySingleTraceIdentity(TraceIndices const &      trace,
             std::vector<csl::Index> indices(tensor.size());
             for (size_t i = 0; i != indices.size(); ++i)
                 indices[i] = trace.indices[tensor.indices[i]];
-            factors.push_back(symmetrizedTrace({CSL_1, indices}));
+            factors.push_back(symmetrizedTrace({CSL_1, indices}, irrep));
         }
         terms.push_back(csl::prod_s(factors));
     }
@@ -262,18 +290,19 @@ ColorSpace::applySingleTraceIdentity(TraceIndices const &      trace,
 
 csl::Expr ColorSpace::applyTraceIdentity(
     TraceIndices const &                   trace,
-    std::vector<mty::TraceIdentity> const &identities) const
+    std::vector<mty::TraceIdentity> const &identities,
+    mty::Irrep const &                     irrep) const
 {
     std::vector<csl::Expr> terms;
     terms.reserve(identities.size());
     for (const auto &id : identities)
-        terms.push_back(applySingleTraceIdentity(trace, id));
+        terms.push_back(applySingleTraceIdentity(trace, id, irrep));
     return csl::sum_s(terms);
 }
 
-csl::Expr ColorSpace::symmetrizedTrace(TraceIndices const &trace) const
+csl::Expr ColorSpace::symmetrizedTrace(TraceIndices const &trace,
+                                      mty::Irrep const &irrep) const
 {
-    mty::Irrep irrep = group->highestWeightRep(group->getHighestWeight(this));
     csl::Expr  index
         = group->getAlgebra()->getIndex(irrep, trace.indices.size());
     if (index != CSL_0) {
@@ -295,7 +324,7 @@ csl::Expr ColorSpace::symmetrizedTrace(TraceIndices const &trace) const
             algebra->getType(), algebra->getOrderL(), trace.indices.size());
         if (traceIdentity.empty())
             return CSL_0;
-        return applyTraceIdentity(trace, traceIdentity);
+        return applyTraceIdentity(trace, traceIdentity, irrep);
     }
     return CSL_0;
 }
@@ -549,7 +578,8 @@ bool ColorSpace::isInstance(csl::Expr const &tensor) const
     if (!csl::IsIndicialTensor(tensor))
         return false;
     auto spaces = tensor->getParent()->getSpace();
-    return spaces.size() == 3 and spaces[1] == this and spaces[2] == this;
+    return spaces.size() == 3 and isIndexCompatibleWith(spaces[1])
+           and isIndexCompatibleWith(spaces[2]);
 }
 
 std::vector<csl::Index>

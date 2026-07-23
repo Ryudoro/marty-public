@@ -190,6 +190,16 @@ class Space {
      */
     virtual std::string getName() const;
 
+    /*!
+     * \brief Returns whether indices from another space may be used where
+     * indices from this space are expected.
+     *
+     * \details The default implementation only accepts the exact same
+     * space. Derived spaces may relax this rule when they represent dual or
+     * otherwise index-compatible carrier spaces.
+     */
+    virtual bool isIndexCompatibleWith(const Space *other) const;
+
     inline std::string getNextIndexName() const;
 
     inline std::string getIndexName(char spec) const;

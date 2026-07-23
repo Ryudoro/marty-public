@@ -27,6 +27,7 @@
 #include <gsl/gsl_complex.h>
 #include <gsl/gsl_matrix.h>
 #endif
+#include <algorithm>
 #include "vector.h"
 
 namespace std {

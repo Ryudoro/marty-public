@@ -69,6 +69,8 @@ class ColorSpace : public csl::Space {
 
     std::string getName() const override;
 
+    bool isIndexCompatibleWith(const csl::Space *other) const override;
+
     bool
     hasSpecialTraceProperty(const csl::vector_expr &tensors) const override;
 
@@ -86,13 +88,16 @@ class ColorSpace : public csl::Space {
     std::vector<TraceIndices> symmetrize(TraceIndices const &init) const;
 
     csl::Expr applySingleTraceIdentity(TraceIndices const &      trace,
-                                       mty::TraceIdentity const &id) const;
+                                       mty::TraceIdentity const &id,
+                                       mty::Irrep const &        irrep) const;
 
     csl::Expr applyTraceIdentity(
         TraceIndices const &                   trace,
-        std::vector<mty::TraceIdentity> const &identities) const;
+        std::vector<mty::TraceIdentity> const &identities,
+        mty::Irrep const &                     irrep) const;
 
-    csl::Expr symmetrizedTrace(TraceIndices const &trace) const;
+    csl::Expr symmetrizedTrace(TraceIndices const &trace,
+                               mty::Irrep const &irrep) const;
 
     void mergeTraces(std::vector<TraceIndices> &traces) const;
 

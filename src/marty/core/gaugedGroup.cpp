@@ -469,7 +469,8 @@ NonAbelianGauged::covariantDerivative(QuantumFieldParent & field,
     Index        b             = spaceIrrepField->generateIndex();
     int          posGaugeIndex = -1;
     for (size_t i = 0; i != fieldIndices.size(); ++i)
-        if (fieldIndices[i].getSpace() == spaceIrrepField) {
+        if (spaceIrrepField->isIndexCompatibleWith(
+                fieldIndices[i].getSpace())) {
             posGaugeIndex = i;
             a             = fieldIndices[i];
             break;
