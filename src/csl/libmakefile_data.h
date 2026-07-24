@@ -35,7 +35,7 @@ void print_libmakefile_data(std::ostream      &out,
     out << "\n";
     out << "CXX     = " << cppCompiler << "\n";
     out << "CC      = " << cCompiler << "\n";
-    out << "CXXSTD  = -std=c++17\n";
+    out << "CXXSTD  = -std=c++20\n";
     out << "CSTD    = -std=c11\n";
     out << "DEFAULTFLAGS = -Wall -Wextra -Wpedantic "
            "-Wno-deprecated-declarations -fPIC\n";

@@ -28,6 +28,8 @@
 #include "libcomplexop_hdata.h"
 #include "libdiagonalization_cppdata.h"
 #include "libdiagonalization_hdata.h"
+#include "libintegration_data.h"
+#include "libkinematics_data.h"
 #include "libmakefile_data.h"
 #include "librarytensor_hdata.h"
 
@@ -330,6 +332,42 @@ void LibraryGenerator::print() const
     }
     printHeader();
     printCallable();
+    if (uniqueParamStruct) {
+        file kinematicsHeader(path + "/" + incDir + "/kinematics.h");
+        libdata::print_libkinematics_hdata(kinematicsHeader, regLibName());
+
+        file kinematicsSource(path + "/" + srcDir + "/kinematics.cpp");
+        libdata::print_libkinematics_cppdata(kinematicsSource, regLibName());
+
+        std::string groupIncludes;
+        std::string functionLookup;
+        for (const auto &g : groups) {
+            if (g->empty() || !g->hasComplexReturn())
+                continue;
+
+            groupIncludes += "#include \"group_" + getGroupFileName(*g)
+                             + ".h\"\n";
+
+            functionLookup +=
+                "    if (auto it = fmap_" + g->getName()
+                + ".find(f_name); it != fmap_" + g->getName()
+                + ".end()) {\n";
+            functionLookup +=
+                "        m_f = "
+                "std::make_unique<Callable<complex_t, param_t>>(it->second);\n";
+            functionLookup += "        return;\n";
+            functionLookup += "    }\n";
+        }
+
+        file integrationHeader(path + "/" + incDir + "/integration.h");
+        libdata::print_libintegration_hdata(integrationHeader, regLibName());
+
+        file integrationSource(path + "/" + srcDir + "/integration.cpp");
+        libdata::print_libintegration_cppdata(integrationSource,
+                                              regLibName(),
+                                              groupIncludes,
+                                              functionLookup);
+    }
     printTest();
     printMakefile();
     printPythonDir();
@@ -594,6 +632,10 @@ void LibraryGenerator::printHeader() const
         if (!g->empty())
             globalHeader << "#include \"group_" << getGroupFileName(*g)
                          << ".h\"\n";
+    }
+    if (uniqueParamStruct) {
+        globalHeader << "#include \"kinematics.h\"\n";
+        globalHeader << "#include \"integration.h\"\n";
     }
     globalHeader << '\n';
     globalHeader << "#endif\n";
