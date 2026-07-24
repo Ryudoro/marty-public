@@ -3,8 +3,18 @@
 #include <cassert>
 #include <iostream>
 #include <exception>
+#include <type_traits>
 
 namespace csl {
+
+template <typename T>
+class InitSanitizer;
+
+template <typename T>
+struct is_init_sanitizer : std::false_type {};
+
+template <typename T>
+struct is_init_sanitizer<InitSanitizer<T>> : std::true_type {};
 
 /**
  * @brief Encapsulates a value of a given to ensure that it initialized when
@@ -107,25 +117,38 @@ class InitSanitizer {
         m_safe = false;
     }
     
-    bool operator == (const InitSanitizer<T> &other) const
-    {  // Defined in "compare"
-      return  (hasValue() && other.hasValue()) ?  (static_cast<T>(get())==static_cast<T>(other.get())) : (!hasValue() && !other.hasValue()) ;
-    }
-    
-    bool operator == (const T &other) const
+    template <typename U>
+    bool operator==(const InitSanitizer<U> &other) const
     {
-      // Defined in "compare"
-      return  hasValue() ? (m_value==other) : false;
+        if (hasValue() != other.hasValue())
+            return false;
+        if (!hasValue())
+            return true;
+
+        using Common = std::common_type_t<T, U>;
+        return static_cast<Common>(get()) == static_cast<Common>(other.get());
     }
 
-    bool operator != (InitSanitizer<T> &other) const
-    { // Defined in "compare"
-      return  !(*this == other) ;
+    template <typename U>
+        requires(!is_init_sanitizer<std::remove_cvref_t<U>>::value
+                 && requires(const T &lhs, const U &rhs) { lhs == rhs; })
+    bool operator==(const U &other) const
+    {
+        return hasValue() ? (m_value == other) : false;
     }
-    
-    bool operator != (T &other) const
-    { // Defined in "compare"
-      return  !(*this == other) ;
+
+    template <typename U>
+    bool operator!=(const InitSanitizer<U> &other) const
+    {
+        return !(*this == other);
+    }
+
+    template <typename U>
+        requires(!is_init_sanitizer<std::remove_cvref_t<U>>::value
+                 && requires(const T &lhs, const U &rhs) { lhs == rhs; })
+    bool operator!=(const U &other) const
+    {
+        return !(*this == other);
     }
     
     operator T() const
