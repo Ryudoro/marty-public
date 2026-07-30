@@ -38,6 +38,15 @@ Here are example diagrams you can try to find running the sample programs !
 | ![GRAFED 3 vertex](assets/grafed_3vertex.png) |  ![GRAFED weak diffusion](assets/grafed_weak.png) | ![GRAFED Meson mixing](assets/grafed_box.png) |
 
 For further `MARTY` magic, checkout the comprehensive [manual](https://marty.in2p3.fr/doc/marty-manual.pdf)!
+
+## Import UFO models
+
+The independent Python module in [`tools/ufo_to_marty`](tools/ufo_to_marty)
+validates a UFO directory and generates a standalone C++ `mty::Model`, a JSON
+manifest and a runtime verifier. Reference tests cover dark-photon, chiral
+`Z'`, HNL and coloured quark-gluon models. See the module README for supported
+structures, convention profiles and usage.
+
 ## Installation
 
 The following procedure is relevant since `MARTY-1.6`. To build and install older versions please refer to the [website](https://marty.in2p3.fr/download.html).

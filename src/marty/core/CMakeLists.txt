@@ -33,6 +33,8 @@ set(ALL_SOURCES
     drawer.h
     expander.cpp
     expander.h
+    externalFeynmanRule.cpp
+    externalFeynmanRule.h
     fermionChain.cpp
     fermionChain.h
     fermionFlow.cpp

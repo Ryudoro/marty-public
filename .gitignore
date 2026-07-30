@@ -4,3 +4,6 @@ marty_env.sh
 build 
 Testing
 .directory
+__pycache__/
+*.py[cod]
+*.egg-info/

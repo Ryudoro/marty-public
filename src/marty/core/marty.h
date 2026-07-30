@@ -38,6 +38,7 @@
 #include "diracology.h"
 #include "drawer.h"
 #include "expander.h"
+#include "externalFeynmanRule.h"
 #include "fermionChain.h"
 #include "fermionOrder.h"
 #include "fermionicField.h"

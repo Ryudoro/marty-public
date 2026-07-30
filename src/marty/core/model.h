@@ -83,6 +83,13 @@ class Model : public ModelBuilder {
     Model(Model const &other)            = delete;
     Model &operator=(Model const &other) = delete;
 
+    friend void AddExternalFeynmanRule(
+        mty::Model &model,
+        std::vector<mty::QuantumField> const &fields,
+        csl::Expr const &expression,
+        mty::Lagrangian::TermType bookkeepingTerm,
+        std::vector<std::size_t> *canonicalOrder);
+
     ///////////////////////////////////////////////////
     // Getters
     ///////////////////////////////////////////////////
@@ -99,6 +106,34 @@ class Model : public ModelBuilder {
     ///////////////////////////////////////////////////
 
     void filterFeynmanRules();
+
+    /**
+     * @brief Registers a pre-computed Feynman rule.
+     *
+     * @details This entry point is intended for external model formats that
+     * already provide vertices (for example UFO). The rule must contain a
+     * valid interaction term, field product and vertex expression. Registered
+     * rules are used directly by computeAmplitude(). Calling
+     * computeFeynmanRules() afterwards rebuilds the cache from the Lagrangian
+     * and therefore discards externally registered rules.
+     */
+    void addFeynmanRule(mty::FeynmanRule rule);
+
+    /**
+     * @brief Starts an authoritative externally supplied rule set.
+     *
+     * @details Existing cached rules are removed and an empty rule set remains
+     * authoritative. This matters for imported models with zero vertices: the
+     * model must not lazily rebuild unrelated rules from its bookkeeping
+     * Lagrangian. addFeynmanRule() also enables this mode automatically.
+     */
+    void beginExternalFeynmanRules();
+
+    /**
+     * @brief Removes all cached rules and restores normal lazy generation from
+     * the Lagrangian.
+     */
+    void clearFeynmanRules();
 
     ///////////////////////////////////////////////////
     // Computation utilities
@@ -295,6 +330,7 @@ class Model : public ModelBuilder {
 
   protected:
     std::vector<mty::FeynmanRule> feynmanRules;
+    bool externalFeynmanRules = false;
 };
 
 int operatorDegeneracy(std::vector<mty::Insertion> const &insertions);

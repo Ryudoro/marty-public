@@ -1067,6 +1067,32 @@ Amplitude Model::connectAmplitudes(Amplitude const   &M1,
     return res;
 }
 
+void Model::addFeynmanRule(mty::FeynmanRule rule)
+{
+    HEPAssert(rule.getInteractionTerm(),
+              mty::error::ValueError,
+              "Cannot register a Feynman rule without an interaction term.");
+    HEPAssert(not rule.getFieldProduct().empty(),
+              mty::error::ValueError,
+              "Cannot register a Feynman rule without fields.");
+    if (not rule.getDiagram())
+        rule.setDiagram(std::make_shared<mty::wick::Graph>());
+    externalFeynmanRules = true;
+    feynmanRules.push_back(std::move(rule));
+}
+
+void Model::beginExternalFeynmanRules()
+{
+    feynmanRules.clear();
+    externalFeynmanRules = true;
+}
+
+void Model::clearFeynmanRules()
+{
+    feynmanRules.clear();
+    externalFeynmanRules = false;
+}
+
 void Model::filterFeynmanRules()
 {
     size_t index = 0;
@@ -1094,6 +1120,7 @@ void Model::filterFeynmanRules()
 
 void Model::computeFeynmanRules()
 {
+    externalFeynmanRules = false;
     csl::ScopedProperty prop(&mty::option::enableAntiChiralProps, false);
     feynmanRules.clear();
     feynmanRules.shrink_to_fit();
@@ -1114,7 +1141,7 @@ void Model::computeFeynmanRules()
 
 std::vector<mty::FeynmanRule> const &Model::getFeynmanRules()
 {
-    if (feynmanRules.empty() and not L.empty())
+    if (feynmanRules.empty() and not externalFeynmanRules and not L.empty())
         computeFeynmanRules();
     return feynmanRules;
 }
