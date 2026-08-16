@@ -45,6 +45,67 @@ bool isDiracTrilinearFermionRule(
     return fermionCount == 2;
 }
 
+bool isMajoranaBilinearRule(
+    std::vector<mty::QuantumField> const &fields)
+{
+    if (fields.size() != 3)
+        return false;
+
+    std::size_t fermionCount = 0;
+    for (auto const &field : fields) {
+        if (!field.isFermionic())
+            continue;
+        if (!field.isSelfConjugate())
+            return false;
+        ++fermionCount;
+    }
+
+    return fermionCount == 2;
+}
+
+bool sameStoredPhysicalOrientation(
+    std::vector<mty::QuantumField> const &storedFields,
+    std::vector<mty::QuantumField> const &physicalFields)
+{
+    if (storedFields.size() != physicalFields.size())
+        return false;
+
+    std::vector<bool> used(physicalFields.size(), false);
+    for (auto const &stored : storedFields) {
+        std::size_t match = physicalFields.size();
+        for (std::size_t i = 0; i < physicalFields.size(); ++i) {
+            if (used[i])
+                continue;
+            if (stored.getQuantumParent()
+                != physicalFields[i].getQuantumParent())
+                continue;
+            if (!stored.isSelfConjugate()
+                && stored.isComplexConjugate()
+                       != physicalFields[i].isComplexConjugate())
+                continue;
+            match = i;
+            break;
+        }
+        if (match == physicalFields.size())
+            return false;
+        used[match] = true;
+    }
+    return true;
+}
+
+bool isBosonicEpsilonTrilinear(
+    std::vector<mty::QuantumField> const &fields,
+    csl::Expr const &expression)
+{
+    if (fields.size() != 3)
+        return false;
+    if (std::any_of(fields.begin(), fields.end(), [](auto const &field) {
+            return field.isFermionic();
+        }))
+        return false;
+    return expression->dependsOn(csl::Minkowski.getEpsilon().get());
+}
+
 bool sameDiracPhysicalOrientation(
     std::vector<mty::QuantumField> const &storedFields,
     std::vector<mty::QuantumField> const &physicalFields)
@@ -272,7 +333,11 @@ void AddExternalFeynmanRule(
               "An external Feynman rule cannot have a zero expression.");
 
     const bool majoranaRule = containsMajoranaFermion(fields);
+    const bool majoranaBilinearRule
+        = isMajoranaBilinearRule(fields);
     const bool diracTrilinearRule = isDiracTrilinearFermionRule(fields);
+    const bool bosonicEpsilonRule
+        = isBosonicEpsilonTrilinear(fields, expression);
     if (not bookkeepingTerm) {
         // External formats such as UFO encode the Feynman-rule factor i in
         // the vertex expression.  A native MARTY FeynmanRule, however, is
@@ -282,7 +347,7 @@ void AddExternalFeynmanRule(
         // the external vertex i for those paths.
         bookkeepingTerm = makeBookkeepingTerm(
             fields,
-            (majoranaRule || diracTrilinearRule)
+            (majoranaRule || diracTrilinearRule || bosonicEpsilonRule)
                 ? (-CSL_I * expression)
                 : expression);
     }
@@ -384,6 +449,42 @@ void AddExternalFeynmanRule(
         }
         model.L.interaction = std::move(savedInteraction);
 
+        if (pairRules.empty() && majoranaBilinearRule) {
+            // A UFO vertex containing two self-conjugate fermions already
+            // represents the complete physical Majorana rule (typically
+            // g_L P_L + g_R P_R), whether the two Majorana species are
+            // identical or distinct. Reinterpreting that full vertex as a
+            // Lagrangian term and deriving it again can yield no canonical
+            // rule for some neutralino-neutralino-boson interactions. There
+            // is no independent particle/antiparticle external orientation
+            // to recover, so retain the supplied UFO rule directly. The
+            // bookkeeping interaction remains scalar and is used only as
+            // rule metadata.
+            if (canonicalOrder)
+                *canonicalOrder = order;
+
+            // FeynmanRule's native constructor stores the fields from the
+            // Hermitian-conjugated interaction and therefore flips the flow
+            // flag of every fermion.  Preserve the same convention in the
+            // direct-UFO fallback.  Keeping the raw incoming UFO flags here
+            // lets the amplitude be built, but leaves the two Majorana spinor
+            // chains disconnected when squaring neutralino-neutralino-boson
+            // amplitudes.
+            auto flowCanonicalFields = fields;
+            for (auto &field : flowCanonicalFields) {
+                if (field.isFermionic())
+                    field.conjugate();
+            }
+
+            mty::FeynmanRule rule;
+            rule.setInteractionTerm(bookkeepingTerm);
+            rule.setFieldProduct(flowCanonicalFields);
+            rule.setExpr(csl::DeepRefreshed(expression));
+            rule.setDiagram(std::make_shared<mty::wick::Graph>());
+            model.addFeynmanRule(std::move(rule));
+            return;
+        }
+
         HEPAssert(!pairRules.empty(),
                   mty::error::RuntimeError,
                   "MARTY could not canonicalize an external Majorana "
@@ -407,6 +508,33 @@ void AddExternalFeynmanRule(
 
         for (auto &candidate : pairRules)
             model.addFeynmanRule(std::move(candidate));
+        return;
+    }
+
+    if (bosonicEpsilonRule) {
+        // FeynmanRule::getFieldProduct() traverses the stored field product in
+        // reverse when assigning witness momenta.  A direct UFO rule normally
+        // tolerates that convention, but an antisymmetric momentum vertex can
+        // be simplified to zero if the two UFO momentum tensors are attached
+        // to the reversed witnesses.  Store this narrow class in reverse UFO
+        // order so getFieldProduct() emits the fields and maps p_i in the
+        // original UFO leg order.
+        auto storedFields = fields;
+        std::reverse(storedFields.begin(), storedFields.end());
+
+        if (canonicalOrder) {
+            order.resize(fields.size());
+            for (std::size_t i = 0; i < fields.size(); ++i)
+                order[i] = fields.size() - 1 - i;
+            *canonicalOrder = order;
+        }
+
+        mty::FeynmanRule rule;
+        rule.setInteractionTerm(bookkeepingTerm);
+        rule.setFieldProduct(storedFields);
+        rule.setExpr(csl::DeepRefreshed(expression));
+        rule.setDiagram(std::make_shared<mty::wick::Graph>());
+        model.addFeynmanRule(std::move(rule));
         return;
     }
 
@@ -439,12 +567,25 @@ void AddExternalFeynmanRule(
         }
 
         auto savedInteraction = std::move(model.L.interaction);
-        model.L.interaction = pairTerms;
 
         std::vector<mty::FeynmanRule> candidates;
         candidates.reserve(pairTerms.size());
         try {
             for (auto const &term : pairTerms) {
+                // FeynmanRule(model, term) derives the rule by computing an
+                // amplitude with the interactions currently registered in
+                // model.L.interaction. Do not expose the whole {term, h.c.}
+                // pair here: for a hermitian chiral current the two symbolic
+                // InteractionTerm objects need not compare equal even though
+                // they describe the same physical vertex, and both would then
+                // contribute to the temporary amplitude. That doubles the
+                // imported vertex (and therefore multiplies its width by 4).
+                //
+                // We still construct candidates from both orientations below;
+                // each candidate must simply be derived in a singleton
+                // interaction context, matching native addLagrangianTerm(...,
+                // false) normalization.
+                model.L.interaction = {term};
                 mty::FeynmanRule candidate(model, term);
                 if (candidate.isEmpty() || candidate.isZero())
                     continue;
@@ -467,13 +608,51 @@ void AddExternalFeynmanRule(
                 return sameDiracPhysicalOrientation(
                     candidate.getFieldProduct(), fields);
             });
-        HEPAssert(matching != candidates.end(),
-                  mty::error::RuntimeError,
-                  "MARTY could not canonicalize an external trilinear "
-                  "Dirac rule in the requested physical orientation.");
+        bool directStoredOrientation = false;
+        if (matching == candidates.end()) {
+            // Charge-conjugating bilinears such as q^T C P_{L,R} q may be
+            // returned by the native constructor already in the physical UFO
+            // orientation, rather than in the conjugated orientation used by
+            // an ordinary bar-psi Gamma psi current.
+            matching = std::find_if(
+                candidates.begin(),
+                candidates.end(),
+                [&](auto const &candidate) {
+                    return sameStoredPhysicalOrientation(
+                        candidate.getFieldProduct(), fields);
+                });
+            directStoredOrientation = matching != candidates.end();
+        }
+        if (matching == candidates.end()) {
+            // Some valid UFO bilinears (sigma^{mu nu}, momentum-slash and
+            // gamma_5 are the first examples) are not reconstructed by the
+            // native Lagrangian canonicalizer. Keep the native path as the
+            // preferred one, but retain the supplied UFO rule directly when
+            // no physical-orientation candidate exists. As for the native
+            // constructor, store the conjugated fermion flow in the rule.
+            if (canonicalOrder)
+                *canonicalOrder = order;
 
-        order = mapDiracPhysicalFieldOrder(
-            fields, matching->getFieldProduct());
+            auto flowCanonicalFields = fields;
+            for (auto &field : flowCanonicalFields) {
+                if (field.isFermionic())
+                    field.conjugate();
+            }
+
+            mty::FeynmanRule rule;
+            rule.setInteractionTerm(bookkeepingTerm);
+            rule.setFieldProduct(flowCanonicalFields);
+            rule.setExpr(csl::DeepRefreshed(expression));
+            rule.setDiagram(std::make_shared<mty::wick::Graph>());
+            model.addFeynmanRule(std::move(rule));
+            return;
+        }
+
+        order = directStoredOrientation
+                    ? mapCanonicalFieldOrder(
+                          fields, matching->getFieldProduct())
+                    : mapDiracPhysicalFieldOrder(
+                          fields, matching->getFieldProduct());
         if (canonicalOrder)
             *canonicalOrder = order;
 
